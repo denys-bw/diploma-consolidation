@@ -1,0 +1,65 @@
+@startuml
+!include style.iuml
+left to right direction
+package views {
+  class "projects" as vp
+  class "sources" as vs
+  class "mapping" as vm
+  class "runs" as vr
+  class "reviews" as vv
+}
+package services {
+  class Services
+  class ProjectService
+  class SourceService
+  class MappingService
+  class RunService {
+    +validate(project_id, options): str[]
+    +start(project_id, options): int
+    +remove(run_id)
+  }
+  class ReviewService
+  class ReportReader
+  class ReportWriter
+  class ConsolidationJob
+  class RunProgress {
+    +stage_started(stage)
+  }
+}
+package repositories {
+  class Repositories
+  class ProjectRepository
+  class SourceRepository
+  class AttributeRepository
+  class RunRepository
+  class ReviewRepository
+}
+class RunQueue {
+  +submit(job): Future
+  +join(timeout): bool
+}
+class Storage
+vp ..> Services
+vs ..> Services
+vm ..> Services
+vr ..> Services
+vv ..> Services
+Services *-- ProjectService
+Services *-- SourceService
+Services *-- MappingService
+Services *-- RunService
+Services *-- ReviewService
+RunService ..> RunQueue
+RunQueue ..> ConsolidationJob
+ConsolidationJob ..> RunProgress
+ConsolidationJob ..> ReportWriter
+ReviewService ..> ReportReader
+ProjectService ..> Repositories
+SourceService ..> Storage
+RunService ..> Repositories
+Repositories *-- ProjectRepository
+Repositories *-- SourceRepository
+Repositories *-- AttributeRepository
+Repositories *-- RunRepository
+Repositories *-- ReviewRepository
+@enduml

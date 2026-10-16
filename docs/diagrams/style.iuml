@@ -1,0 +1,12 @@
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName DejaVu Sans
+skinparam defaultFontSize 13
+skinparam dpi 120
+skinparam packageStyle rectangle
+skinparam classAttributeIconSize 0
+skinparam roundcorner 0
+hide empty members
+hide circle
+skinparam nodesep 25
+skinparam ranksep 40

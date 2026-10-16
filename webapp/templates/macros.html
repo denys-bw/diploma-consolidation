@@ -1,0 +1,107 @@
+{% macro csrf() -%}
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+{%- endmacro %}
+
+{% macro breadcrumbs(project=None, current=None, links=()) -%}
+<nav class="breadcrumbs" aria-label="Навігація">
+  <a href="{{ url_for('projects.index') }}">Проєкти</a>
+  {% if project %}<span><a href="{{ url_for('projects.show', project_id=project.id) }}">{{ project.name }}</a></span>{% endif %}
+  {% for label, href in links %}<span><a href="{{ href }}">{{ label }}</a></span>{% endfor %}
+  {% if current %}<span>{{ current }}</span>{% endif %}
+</nav>
+{%- endmacro %}
+
+{% macro step_class(name, active, done) -%}
+{{ 'is-active' if name == active else ('is-done' if done else '') }}
+{%- endmacro %}
+
+{% macro steps(project, active, run_id=None) -%}
+{% set progress = project_progress(project.id) %}
+{% set report_id = run_id or progress.report_run_id %}
+<ol class="steps" aria-label="Етапи роботи з проєктом">
+  <li class="{{ step_class('sources', active, progress.sources) }}">
+    <a href="{{ url_for('projects.show', project_id=project.id) }}"><span class="steps__number">1</span>Джерела <span class="steps__count">{{ progress.sources }}</span></a>
+  </li>
+  <li class="{{ step_class('mapping', active, progress.attributes) }}">
+    <a href="{{ url_for('mapping.edit', project_id=project.id) }}"><span class="steps__number">2</span>Зіставлення колонок <span class="steps__count">{{ progress.attributes }}</span></a>
+  </li>
+  <li class="{{ step_class('settings', active, progress.runs) }}">
+    <a href="{{ url_for('runs.settings', project_id=project.id) }}"><span class="steps__number">3</span>Налаштування й запуск</a>
+  </li>
+  <li class="{{ step_class('report', active, progress.report_run_id) }}">
+    {% if report_id %}
+    <a href="{{ url_for('runs.show', run_id=report_id) }}"><span class="steps__number">4</span>Звіт</a>
+    {% else %}
+    <a aria-disabled="true"><span class="steps__number">4</span>Звіт</a>
+    {% endif %}
+  </li>
+</ol>
+{%- endmacro %}
+
+{% macro status_badge(status) -%}
+{% set labels = {
+  'queued': ('у черзі', 'neutral'),
+  'running': ('виконується', 'accent'),
+  'finished': ('готово', 'success'),
+  'failed': ('помилка', 'danger'),
+} %}
+{% set label, tone = labels[status.value] %}
+<span class="badge badge--{{ tone }}">{{ label }}</span>
+{%- endmacro %}
+
+{% macro meter(value) -%}
+<span class="meter">
+  <span class="meter__track"><span class="meter__fill" style="width: {{ '%.1f'|format((value or 0) * 100) }}%"></span></span>
+  <span class="small">{{ value|percent }}</span>
+</span>
+{%- endmacro %}
+
+{% macro choices(name, items, chosen, legend, row=False) -%}
+<fieldset class="choices{{ ' choices--row' if row }}">
+  <legend>{{ legend }}</legend>
+  {% for item in items %}
+  <label class="choice">
+    <input type="radio" name="{{ name }}" value="{{ item.value }}"{{ ' checked' if item.value == chosen }}>
+    <span><strong>{{ item.title }}</strong><small>{{ item.hint }}</small></span>
+  </label>
+  {% endfor %}
+</fieldset>
+{%- endmacro %}
+
+{% macro frame_table(frame, limit=None, tall=False, fit=False) -%}
+{% if frame.empty %}
+<div class="empty">Немає даних.</div>
+{% elif frame.columns|length == 2 and frame.columns[1] == 'Значення' %}
+<dl class="definition definition--table">
+  {% for label, value in frame.itertuples(index=False, name=None) %}
+  <dt>{{ label }}</dt>
+  <dd>{{ value|cell('Значення') }}</dd>
+  {% endfor %}
+</dl>
+{% else %}
+{% set rows = frame.head(limit) if limit else frame %}
+<div class="table-wrap{{ ' table-wrap--tall' if tall }}{{ ' table-wrap--fit' if fit }}">
+  <table class="table table--compact">
+    <thead>
+      <tr>{% for column in frame.columns %}<th>{{ column }}</th>{% endfor %}</tr>
+    </thead>
+    <tbody>
+      {% for row in rows.itertuples(index=False, name=None) %}
+      <tr>
+        {% for value in row %}
+        {% set column = frame.columns[loop.index0] %}
+        <td class="{{ value|align(column) }}">{{ value|cell(column) }}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if limit and frame|length > limit %}
+<p class="hint">Показано {{ limit|number }} з {{ frame|length|number }} рядків. Решта є у звіті Excel.</p>
+{% endif %}
+{% endif %}
+{%- endmacro %}
+{% macro status_text(included) -%}
+<span class="badge {{ 'badge--success' if included else 'badge--neutral' }}">{{ 'в обробці' if included else 'вимкнено' }}</span>
+{%- endmacro %}

@@ -1,0 +1,92 @@
+@startuml
+!include style.iuml
+class Linker {
+  +settings: LinkageSettings
+  +run(records: RecordSet, review: ClericalReview): LinkageResult
+  -_detect(records, candidates, vectors, reviewed): SourceStructure
+  -_score(records, candidates, vectors, values, reviewed, structure): PairScores
+  -_clusterer(structure): Clusterer
+}
+class LinkageSettings {
+  +policy: DuplicatePolicy
+  +blocker: Blocker
+  +scorer: PairScorer
+  +clusterer: Clusterer
+  +decision: DecisionRule
+  +select_metrics: bool
+}
+class LinkageResult {
+  +candidates: ndarray
+  +weights: ndarray
+  +probabilities: ndarray
+  +statuses: ndarray
+  +labels: ndarray
+  +review_queue(extended: bool): ndarray
+  +reliability(): Reliability
+}
+class SourceStructure {
+  +scope: PairScope
+  +clean: bool
+  +evidence: float
+  +{static} declared(policy, sources): SourceStructure
+  +{static} detected(comparison, groups, reviewed, prior): SourceStructure
+}
+class DecisionRule {
+  +match_probability: float
+  +false_match_rate: float
+  +missed_match_rate: float
+  +accepted(probabilities): ndarray
+  +statuses(probabilities, contested): ndarray
+}
+class Comparison {
+  +{static} for_records(records, scope): Comparison
+  +compare(pairs): ComparisonMatrix
+}
+abstract class Comparator {
+  +fit(values): Comparator
+  +similarity(left, right): ndarray
+  +exact(left, right): ndarray
+}
+class ComparisonMatrix {
+  +levels: ndarray
+  +similarities: ndarray
+  +frequencies: ndarray
+}
+class ScoringTask {
+  +records: RecordSet
+  +pairs: ndarray
+  +comparison: ComparisonMatrix
+  +prior: float
+  +reviewed: ndarray
+  +constraint: OneToOneConstraint
+}
+class PairScores {
+  +model: FellegiSunterModel
+  +inside: FellegiSunterModel
+  +weights: ndarray
+  +group_priors: float[]
+  +probabilities: ndarray
+}
+class FellegiSunterModel {
+  +m: ndarray[]
+  +u: ndarray[]
+  +priors: float[]
+  +attribute_weights(levels): ndarray
+}
+class ClericalReview
+class RecordSet
+Linker o-- LinkageSettings
+Linker ..> RecordSet
+Linker ..> ClericalReview
+Linker ..> Comparison
+Linker ..> ScoringTask
+Linker ..> SourceStructure
+Linker ..> LinkageResult
+LinkageSettings o-- DecisionRule
+Comparison o-- "1..*" Comparator
+Comparison ..> ComparisonMatrix
+ScoringTask o-- ComparisonMatrix
+ScoringTask o-- RecordSet
+PairScores *-- "1..2" FellegiSunterModel
+LinkageResult o-- SourceStructure
+@enduml

@@ -1,0 +1,53 @@
+@startuml
+!include style.iuml
+node "Веб-застосунок (Flask)" {
+  [views] as V
+  [services] as S
+  [repositories] as RE
+  [RunQueue] as Q
+  [Storage] as ST
+}
+database "SQLite" as DB
+folder "instance/files" as FS
+package "consolidator" {
+  [pipeline] as P
+  [io] as IO
+  [profiling] as PR
+  [schema] as SC
+  [standardization] as SD
+  [values] as VA
+  [linkage] as L
+  [fusion] as F
+  [imputation] as I
+  [quality] as QL
+  [reporting] as RP
+  [evaluation] as EV
+}
+package "Дослідження" {
+  [experiments] as E
+  [benchmarks] as B
+}
+folder "data" as D
+V --> S
+S --> RE
+S --> Q
+S --> ST
+S --> RP
+RE --> DB
+ST --> FS
+Q --> P
+P --> IO
+P --> PR
+P --> SC
+P --> SD
+P --> L
+P --> F
+P --> I
+P --> QL
+SD --> VA
+E --> P
+E --> B
+E --> EV
+B --> IO
+B --> D
+@enduml

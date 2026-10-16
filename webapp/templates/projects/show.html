@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ project.name }}{% endblock %}
+{% block breadcrumbs %}{{ ui.breadcrumbs(current=project.name) }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ project.name }}</h1>
+    {% if project.description %}<p class="lead">{{ project.description }}</p>{% endif %}
+    <p class="muted small">Створено {{ project.created_at|timestamp }}, змінено {{ project.updated_at|timestamp }}</p>
+  </div>
+  <div class="page-header__actions">
+    <form class="inline-form" method="post" action="{{ url_for('projects.delete', project_id=project.id) }}" data-confirm="Видалити проєкт «{{ project.name }}» разом з усіма файлами й звітами?">
+      {{ ui.csrf() }}
+      <button class="button button--danger" type="submit">Видалити проєкт</button>
+    </form>
+  </div>
+</div>
+{{ ui.steps(project, 'sources') }}
+  <section class="card">
+    <div class="card__header">
+      <h2>Джерела даних</h2>
+      <span class="muted small">в обробці {{ included|length }}, записів {{ included|sum(attribute='record_count')|number }}</span>
+    </div>
+    {% if files %}
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Джерело</th>
+            <th>Формат</th>
+            <th class="num">Записів</th>
+            <th class="num">Колонок</th>
+            <th>Ідентифікатор запису</th>
+            <th>Повнота</th>
+            <th>Стан</th>
+          </tr>
+        </thead>
+        {% for uploaded in files %}
+        <tbody>
+          <tr class="table__group">
+            <td colspan="6">{{ uploaded.original_name }} <span class="muted small">{{ uploaded.size_bytes|file_size }}, {{ uploaded.uploaded_at|timestamp }}</span></td>
+            <td class="num">
+              <form class="inline-form" method="post" action="{{ url_for('sources.delete_file', project_id=project.id, file_id=uploaded.id) }}" data-confirm="Видалити файл «{{ uploaded.original_name }}» і всі його джерела з проєкту?">
+                {{ ui.csrf() }}
+                <button class="button button--small button--danger" type="submit">Видалити файл</button>
+              </form>
+            </td>
+          </tr>
+          {% for table in uploaded.tables %}
+          {% for source in table.sources %}
+          <tr{% if not source.included %} class="is-off"{% endif %}>
+            <td>
+              <a href="{{ url_for('sources.show', project_id=project.id, source_id=source.id) }}">{{ source.name }}</a>
+              {% if table.split_column %}<div class="muted small">з таблиці «{{ table.name }}» за колонкою {{ table.split_column }}</div>{% endif %}
+            </td>
+            <td>{{ source.format }}</td>
+            <td class="num">{{ source.record_count|number }}</td>
+            <td class="num">{{ source.column_count|number }}</td>
+            <td>{{ table.key_column or 'номер рядка' }}</td>
+            <td>{{ ui.meter(source.completeness) }}</td>
+            <td class="nowrap">
+              <form class="inline-form" method="post" action="{{ url_for('sources.toggle', project_id=project.id, source_id=source.id) }}">
+                {{ ui.csrf() }}
+                {{ ui.status_text(source.included) }}
+                <button class="button button--small button--ghost" type="submit">{{ 'вимкнути' if source.included else 'увімкнути' }}</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+          {% endfor %}
+        </tbody>
+        {% endfor %}
+      </table>
+    </div>
+    <p class="hint">Вимкнене джерело не бере участі в обробці.</p>
+    {% else %}
+    <div class="empty">Файлів ще немає.</div>
+    {% endif %}
+  </section>
+<div class="grid grid--two grid--start">
+  <section class="card">
+    <h2>Додати файли</h2>
+    <form class="form" method="post" enctype="multipart/form-data" action="{{ url_for('sources.upload', project_id=project.id) }}">
+      {{ ui.csrf() }}
+      <div class="dropzone" data-dropzone>
+        <div class="dropzone__row">
+          <input type="file" name="files" multiple required accept="{{ accepted }}" aria-label="Файли з даними">
+        </div>
+        <p class="hint">CSV, TSV, TXT, JSON, JSON Lines, XML, Excel, SQLite, архіви .zip і .gz.</p>
+        <ul class="file-list" data-file-list hidden></ul>
+      </div>
+      <div><button class="button button--primary" type="submit">Завантажити</button></div>
+    </form>
+  </section>
+  {% if layout %}
+  <section class="card">
+    <div class="card__header">
+      <h2>Структура таблиць</h2>
+      <span class="muted small">для всіх таблиць одразу</span>
+    </div>
+    <form class="layout-form" method="post" action="{{ url_for('sources.configure_all', project_id=project.id) }}">
+      {{ ui.csrf() }}
+      {% for field in layout %}
+      <label class="field">
+        <span>{{ field.label }}</span>
+        <select name="{{ field.name }}">
+          {% for value, label in field.options %}<option value="{{ value }}"{{ ' selected' if value == field.current }}>{{ label }}</option>{% endfor %}
+        </select>
+      </label>
+      {% endfor %}
+      <div><button class="button" type="submit">Застосувати до всіх</button></div>
+    </form>
+    <p class="hint">Ідентифікатор позначає запис і не порівнюється. Розділення потрібне, якщо в одній таблиці записи кількох джерел.</p>
+  </section>
+  {% endif %}
+</div>
+<section class="card">
+  <div class="card__header">
+    <h2>Запуски обробки</h2>
+    <span class="muted small">усього: {{ runs|length }}</span>
+  </div>
+  {% if runs %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Запуск</th>
+          <th>Стан</th>
+          <th>Створено</th>
+          <th class="num">Записів</th>
+          <th class="num">Сутностей</th>
+          <th class="num">Індекс до</th>
+          <th class="num">Індекс після</th>
+          <th class="num">Тривалість</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in runs %}
+        <tr>
+          <td class="nowrap"><a href="{{ url_for('runs.show', run_id=item.run.id) }}">№{{ item.run.id }}</a></td>
+          <td>{{ ui.status_badge(item.run.status) }}</td>
+          <td class="nowrap">{{ item.run.created_at|timestamp }}</td>
+          <td class="num">{{ item.record_count|number }}</td>
+          <td class="num">{{ item.entity_count|number }}</td>
+          <td class="num">{{ item.index_before|percent(2) }}</td>
+          <td class="num">{{ item.index_after|percent(2) }}</td>
+          <td class="num">{{ item.run.seconds|duration }}</td>
+          <td class="num">
+            {% if item.run.status.done %}
+            <form class="inline-form" method="post" action="{{ url_for('runs.delete', run_id=item.run.id) }}" data-confirm="Видалити запуск №{{ item.run.id }} і його звіт?">
+              {{ ui.csrf() }}
+              <button class="button button--small button--ghost" type="submit">Видалити</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">Запусків ще не було.</div>
+  {% endif %}
+</section>
+<section class="card">
+  <div class="card__header">
+    <h2>Атрибути результату</h2>
+    {% if files %}<a class="small" href="{{ url_for('mapping.edit', project_id=project.id) }}">Змінити зіставлення</a>{% endif %}
+  </div>
+  {% if attributes %}
+  <ul class="attribute-list">
+    {% for attribute in attributes %}
+    <li><strong>{{ attribute.name }}</strong> <span class="muted">{{ attribute.type|type_label }}, джерел: {{ attribute.columns|length }}</span></li>
+    {% endfor %}
+  </ul>
+  <p class="hint">Зіставлено за назвами й значеннями колонок.{% if reference %} Еталон: «{{ reference.name }}».{% endif %}</p>
+  <div><a class="button button--primary" href="{{ url_for('runs.settings', project_id=project.id) }}">Налаштувати й запустити</a></div>
+  {% else %}
+  <p class="muted">Атрибути з'являться після завантаження файлів.</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "consolidator"
+version = "0.1.0"
+description = "Інформаційна технологія консолідації та підвищення якості даних з різнорідних джерел"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Білоусов Денис Олегович" }]
+dependencies = [
+    "jellyfish>=1.0",
+    "numpy>=1.26",
+    "openpyxl>=3.1",
+    "pandas>=2.2",
+    "phonenumbers>=8.13",
+    "rapidfuzz>=3.6",
+    "scikit-learn>=1.4",
+    "scipy>=1.11",
+]
+
+[project.optional-dependencies]
+web = ["flask>=3.0"]
+research = ["matplotlib>=3.8", "networkx>=3.2", "recordlinkage>=0.16"]
+dev = ["pytest>=8"]
+
+[tool.setuptools.packages.find]
+include = ["consolidator*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-p no:cacheprovider"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"

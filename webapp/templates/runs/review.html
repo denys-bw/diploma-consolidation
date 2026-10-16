@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Ручна перевірка, звіт №{{ run.id }}{% endblock %}
+{% block breadcrumbs %}{{ ui.breadcrumbs(project, 'Ручна перевірка', [('Звіт запуску №' ~ run.id, url_for('runs.show', run_id=run.id))]) }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Ручна перевірка можливих збігів</h1>
+    <p class="lead">Пар у зоні перевірки: {{ page.total|number }}, з них вирішено: {{ page.decided|number }}.</p>
+  </div>
+  <div class="page-header__actions">
+    {% if page.number > 1 %}
+    <a class="button" href="{{ url_for('reviews.show', run_id=run.id, page=page.number - 1) }}">Попередня сторінка</a>
+    {% endif %}
+    {% if page.number < page.pages %}
+    <a class="button" href="{{ url_for('reviews.show', run_id=run.id, page=page.number + 1) }}">Наступна сторінка</a>
+    {% endif %}
+    <a class="button" href="{{ url_for('runs.show', run_id=run.id) }}">До звіту</a>
+  </div>
+</div>
+{{ ui.steps(project, 'report', run.id) }}
+{% if page.pairs %}
+<form class="card" method="post" action="{{ url_for('reviews.save', run_id=run.id) }}">
+  {{ ui.csrf() }}
+  <input type="hidden" name="pairs" value="{{ page.pairs|length }}">
+  <input type="hidden" name="page" value="{{ page.number }}">
+  <p class="hint">Спершу найсумнівніші пари. Різні значення виділено. «Свідчення» показує, наскільки атрибут свідчить за збіг чи проти нього.</p>
+  {% for pair in page.pairs %}
+  {% set row = loop.index0 %}
+  <section class="review-pair">
+    <div class="review-pair__header">
+      <h3>Пара {{ (page.start + loop.index)|number }}</h3>
+      <span class="muted small">імовірність збігу {{ pair.probability|percent(1) }}; у цьому запуску: {{ 'дублікати' if pair.accepted else 'різні записи' }}</span>
+    </div>
+    <div class="table-wrap">
+      <table class="table table--compact review-pair__table">
+        <thead>
+          <tr>
+            <th>Атрибут</th>
+            <th>{{ pair.left.source }}, запис {{ pair.left.key }}</th>
+            <th>{{ pair.right.source }}, запис {{ pair.right.key }}</th>
+            <th>Свідчення</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for value in pair.values %}
+          <tr{% if value.conflicting %} class="is-different"{% endif %}>
+            <td>{{ value.attribute }}</td>
+            <td>{{ value.left }}</td>
+            <td>{{ value.right }}</td>
+            <td class="nowrap">{% if value.evidence is not none %}<span class="badge {{ 'badge--success' if value.evidence > 0 else 'badge--danger' }}">{{ 'за' if value.evidence > 0 else 'проти' }} {{ value.evidence|abs|number(1) }}</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <input type="hidden" name="left_source_{{ row }}" value="{{ pair.left.source }}">
+    <input type="hidden" name="left_key_{{ row }}" value="{{ pair.left.key }}">
+    <input type="hidden" name="right_source_{{ row }}" value="{{ pair.right.source }}">
+    <input type="hidden" name="right_key_{{ row }}" value="{{ pair.right.key }}">
+    <fieldset class="verdict">
+      <legend class="visually-hidden">Рішення щодо пари {{ page.start + loop.index }}</legend>
+      <label><input type="radio" name="decision_{{ row }}" value="match"{{ ' checked' if pair.decision is true }}>Той самий об'єкт</label>
+      <label><input type="radio" name="decision_{{ row }}" value="different"{{ ' checked' if pair.decision is false }}>Різні об'єкти</label>
+      <label><input type="radio" name="decision_{{ row }}" value=""{{ ' checked' if pair.decision is none }}>Не вирішено</label>
+    </fieldset>
+  </section>
+  {% endfor %}
+  <div class="action-bar">
+    <span class="action-bar__note">Сторінка {{ page.number }} з {{ page.pages }}. Під час наступного запуску модель навчиться на цих відповідях.</span>
+    <button class="button" type="submit" name="action" value="save">Зберегти</button>
+    {% if page.number < page.pages %}
+    <button class="button" type="submit" name="action" value="next">Зберегти й далі</button>
+    {% endif %}
+    <button class="button button--primary" type="submit" name="action" value="rerun">Зберегти й запустити обробку</button>
+  </div>
+</form>
+{% else %}
+<section class="card">
+  <div class="empty">Пар для ручної перевірки немає: очікувані частки помилок не перевищують допустимих. Щоб перевірити більше пар, зменште допустимі частки помилок у налаштуваннях.</div>
+</section>
+{% endif %}
+{% endblock %}

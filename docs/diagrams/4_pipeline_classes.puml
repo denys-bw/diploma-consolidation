@@ -1,0 +1,66 @@
+@startuml
+!include style.iuml
+class Pipeline {
+  +settings: PipelineSettings
+  +observers: StageObserver[]
+  +match(sources, profiles): SchemaMapping
+  +prepare(sources, mapping, profiles): PreparedData
+  +consolidate(prepared, review): PipelineResult
+  +run(sources, mapping, profiles, review): PipelineResult
+}
+interface StageObserver {
+  +stage_started(stage: str)
+}
+abstract class Stage {
+  +name: str
+  +{abstract} run(context: PipelineContext)
+}
+class PipelineContext {
+  +settings: PipelineSettings
+  +sources: Source[]
+  +profiles: dict
+  +mapping: SchemaMapping
+  +records: RecordSet
+  +linkage: LinkageResult
+  +fusion: FusionResult
+  +imputation: ImputationResult
+  +quality_before: QualityScores
+  +quality_after: QualityScores
+}
+class PipelineSettings {
+  +standardization: StandardizationSettings
+  +schema_alpha: float
+  +linkage: LinkageSettings
+  +resolvers: dict
+  +imputer: Imputer
+  +weights: QualityWeights
+}
+class PreparedData
+class PipelineResult {
+  +consolidated: DataFrame
+  +provenance: DataFrame
+  +quality_before: QualityScores
+  +quality_after: QualityScores
+}
+class ProfilingStage
+class SchemaStage
+class StandardizationStage
+class LinkageStage
+class FusionStage
+class ImputationStage
+class QualityStage
+Pipeline o-- PipelineSettings
+Pipeline o-- "0..*" StageObserver
+Pipeline ..> Stage
+Pipeline ..> PipelineContext
+Pipeline ..> PreparedData
+Pipeline ..> PipelineResult
+Stage ..> PipelineContext
+Stage <|-- ProfilingStage
+Stage <|-- SchemaStage
+Stage <|-- StandardizationStage
+Stage <|-- LinkageStage
+Stage <|-- FusionStage
+Stage <|-- ImputationStage
+Stage <|-- QualityStage
+@enduml

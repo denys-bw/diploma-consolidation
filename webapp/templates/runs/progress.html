@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Запуск №{{ run.id }}, {{ project.name }}{% endblock %}
+{% block head %}{% if not run.status.done %}<noscript><meta http-equiv="refresh" content="3"></noscript>{% endif %}{% endblock %}
+{% block breadcrumbs %}{{ ui.breadcrumbs(project, 'Запуск №' ~ run.id) }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Запуск №{{ run.id }}</h1>
+    <p class="lead">Створено {{ run.created_at|timestamp }}{% if run.started_at %}, розпочато {{ run.started_at|timestamp }}{% endif %}</p>
+  </div>
+  <div class="page-header__actions">{{ ui.status_badge(run.status) }}</div>
+</div>
+{{ ui.steps(project, 'report', run.id) }}
+{% if run.status.value == 'failed' %}
+<section class="card">
+  <h2>Обробку не завершено</h2>
+  <div class="callout callout--danger">{{ run.error }}</div>
+  <div class="page-header__actions">
+    <a class="button button--primary" href="{{ url_for('runs.settings', project_id=project.id) }}">Змінити налаштування</a>
+    <a class="button" href="{{ url_for('mapping.edit', project_id=project.id) }}">Перевірити зіставлення</a>
+    <form class="inline-form" method="post" action="{{ url_for('runs.delete', run_id=run.id) }}" data-confirm="Видалити запуск №{{ run.id }}?">
+      {{ ui.csrf() }}
+      <button class="button button--danger" type="submit">Видалити запуск</button>
+    </form>
+  </div>
+</section>
+{% else %}
+<section class="card" data-run-status="{{ url_for('runs.status', run_id=run.id) }}">
+  <h2 data-stage-label>{{ stage_label }}</h2>
+  <div class="progress progress--busy" role="progressbar" aria-label="Хід обробки">
+    <div class="progress__bar" data-progress-bar style="width: {{ '%.0f'|format(progress * 100) }}%"></div>
+  </div>
+  <p class="muted small">Сторінка оновиться, коли звіт буде готовий. Обробка йде у фоні, тож її можна закрити.</p>
+  <ol class="how stage-list">
+    {% for key, label in stage_labels.items() %}
+    <li data-stage="{{ key }}"{% if key == stage %} class="is-active"{% elif stage and loop.index0 < (stage_labels|list).index(stage) %} class="is-done"{% endif %}>{{ label }}</li>
+    {% endfor %}
+  </ol>
+</section>
+{% endif %}
+{% endblock %}

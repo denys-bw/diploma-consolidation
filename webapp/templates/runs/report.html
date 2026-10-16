@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Звіт №{{ run.id }}, {{ project.name }}{% endblock %}
+{% block breadcrumbs %}{{ ui.breadcrumbs(project, 'Звіт запуску №' ~ run.id) }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Звіт обробки №{{ run.id }}</h1>
+    <p class="lead">{{ report.record_count|number }} записів з {{ report.source_count|number }} джерел, {{ report.attribute_count|number }} атрибутів. Обробку завершено {{ run.finished_at|timestamp }}, вона тривала {{ report.seconds|duration }}.</p>
+  </div>
+  <div class="page-header__actions">
+    {% for file in files %}
+    <a class="button{{ ' button--primary' if file.kind == 'consolidated' }}" href="{{ url_for('runs.download', run_id=run.id, kind=file.kind) }}" title="{{ file.size_bytes|file_size }}">{{ downloads[file.kind].label }}</a>
+    {% endfor %}
+  </div>
+</div>
+{{ ui.steps(project, 'report', run.id) }}
+<section class="card">
+  <div class="card__header">
+    <h2>Якість даних до і після обробки</h2>
+    <span class="muted small">ваги обчислено методом аналізу ієрархій, CR = {{ ahp.consistency_ratio|number(3) }}</span>
+  </div>
+  <div class="quality">
+    <div class="index-pair">
+      <div class="index">
+        <span class="index__label">Інтегральний індекс до обробки</span>
+        <span class="index__value">{{ report.index_before|percent(2) }}</span>
+      </div>
+      <div class="index index--after">
+        <span class="index__label">Після обробки</span>
+        <span class="index__value">{{ report.index_after|percent(2) }}</span>
+        <span class="index__delta{{ ' is-negative' if report.index_after < report.index_before }}">{{ (report.index_after - report.index_before)|points(2) }}</span>
+      </div>
+    </div>
+    <div class="bars">
+      {% for score in scores %}
+      <div class="bars__row">
+        <div class="bars__label">{{ criterion_labels[score.criterion] }}<small>вага {{ score.weight|number(3) }}</small></div>
+        <div class="bars__track">
+          <span class="bars__bar bars__bar--before" style="width: calc((100% - 120px) * {{ '%.4f'|format(score.before) }})"></span>
+          <span class="bars__value">до {{ score.before|percent(2) }}</span>
+        </div>
+        <div class="bars__track">
+          <span class="bars__bar bars__bar--after" style="width: calc((100% - 120px) * {{ '%.4f'|format(score.after) }})"></span>
+          <span class="bars__value">після {{ score.after|percent(2) }}</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="formula">Q = {% for score in scores %}{{ ' + ' if not loop.first }}{{ score.weight|number(3) }} · {{ criterion_labels[score.criterion]|lower }}{% endfor %}</div>
+</section>
+{% if evaluation %}
+<section class="card">
+  <div class="card__header">
+    <h2>Оцінювання за еталоном</h2>
+    <span class="muted small">еталонна колонка «{{ evaluation.reference }}» не брала участі в обробці</span>
+  </div>
+  <div class="stats">
+    <div class="stat">
+      <div class="stat__label">Точність (precision)</div>
+      <div class="stat__value">{{ evaluation.pairs.precision|percent(2) }}</div>
+      <div class="stat__note">правильних серед знайдених пар: {{ evaluation.pairs.true_positives|number }} з {{ evaluation.pairs.found|number }}</div>
+    </div>
+    <div class="stat">
+      <div class="stat__label">Повнота (recall)</div>
+      <div class="stat__value">{{ evaluation.pairs.recall|percent(2) }}</div>
+      <div class="stat__note">знайдено справжніх пар: {{ evaluation.pairs.true_positives|number }} з {{ evaluation.pairs.expected|number }}</div>
+    </div>
+    <div class="stat">
+      <div class="stat__label">F1-міра</div>
+      <div class="stat__value">{{ evaluation.pairs.f1|percent(2) }}</div>
+      <div class="stat__note">гармонійне середнє точності й повноти</div>
+    </div>
+    <div class="stat">
+      <div class="stat__label">Сутностей</div>
+      <div class="stat__value">{{ report.entity_count|number }}</div>
+      <div class="stat__note">за еталоном: {{ evaluation.true_entities|number }}</div>
+    </div>
+  </div>
+  <p class="hint">Дублікати за еталоном: записи з однаковим значенням еталонної колонки.</p>
+</section>
+{% endif %}
+<div class="stats">
+  <div class="stat">
+    <div class="stat__label">Записів у джерелах</div>
+    <div class="stat__value">{{ report.record_count|number }}</div>
+    <div class="stat__note">джерел: {{ report.source_count|number }}</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">Сутностей після злиття</div>
+    <div class="stat__value">{{ report.entity_count|number }}</div>
+    <div class="stat__note">об'єднано записів: {{ report.merged_records|number }}</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">Пар-кандидатів</div>
+    <div class="stat__value">{{ report.candidate_pairs|number }}</div>
+    <div class="stat__note">визнано дублікатами: {{ report.matched_pairs|number }}</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">Можливих збігів</div>
+    <div class="stat__value">{{ report.possible_pairs|number }}</div>
+    <div class="stat__note">{% if report.possible_pairs %}<a href="{{ url_for('reviews.show', run_id=run.id) }}">перевірити вручну</a>{% else %}зона ручної перевірки порожня{% endif %}{% if report.reviewed_pairs %}; враховано рішень: {{ report.reviewed_pairs|number }}{% endif %}</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">Уніфіковано значень</div>
+    <div class="stat__value">{{ report.unified_cells|number }}</div>
+    <div class="stat__note">не розпізнано: {{ report.unrecognized_cells|number }}</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">Розв'язано конфліктів</div>
+    <div class="stat__value">{{ report.conflicting_cells|number }}</div>
+    <div class="stat__note">значень записів замінено узгодженим</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">Заповнено пропусків</div>
+    <div class="stat__value">{{ (report.filled_cells + report.imputed_cells)|number }}</div>
+    <div class="stat__note">з дублікатів: {{ report.filled_cells|number }}; відновлено статистично: {{ report.imputed_cells|number }}</div>
+  </div>
+</div>
+{% if reliability %}
+<div class="callout {{ 'callout--success' if reliability.reliable else 'callout--warning' }}">
+  <strong>{{ 'Пошук дублікатів надійний.' if reliability.reliable else 'Результат пошуку дублікатів варто перевірити.' }}</strong>
+  {% if reliability.reasons %}<p>Причина: {{ reliability.reasons }}.</p>{% endif %}
+  <ul>
+    <li>Очікувана частка хибних збігів: {{ reliability.false_share|percent(1) }} (допустимо {{ reliability.false_tolerance|percent(1) }}).</li>
+    <li>Очікувана частка пропущених дублікатів: {{ reliability.missed_share|percent(1) }} (допустимо {{ reliability.missed_tolerance|percent(1) }}).</li>
+    <li>Пар, щодо яких дві моделі не згодні: {{ reliability.contested|number }}; у зоні ручної перевірки: {{ reliability.possible|number }}.</li>
+  </ul>
+  {% if not reliability.reliable and reliability.suggested %}
+  <p><a class="button button--small" href="{{ url_for('reviews.show', run_id=run.id) }}">Перевірити {{ reliability.suggested|number }} пар</a> Модель навчиться на відповідях під час наступного запуску.</p>
+  {% endif %}
+</div>
+{% endif %}
+<section class="card" data-tabs>
+  <div class="tabs__list" role="tablist">
+    <button class="tabs__tab" type="button" role="tab" data-tab="data">Консолідовані дані</button>
+    <button class="tabs__tab" type="button" role="tab" data-tab="duplicates">Дублікати <span class="tabs__count">{{ duplicate_total|number }}</span></button>
+    <button class="tabs__tab" type="button" role="tab" data-tab="sources">Джерела</button>
+    <button class="tabs__tab" type="button" role="tab" data-tab="mapping">Зіставлення й уніфікація</button>
+    <button class="tabs__tab" type="button" role="tab" data-tab="linkage">Пошук дублікатів</button>
+    <button class="tabs__tab" type="button" role="tab" data-tab="fusion">Злиття</button>
+    <button class="tabs__tab" type="button" role="tab" data-tab="profile">Профіль результату</button>
+    <button class="tabs__tab" type="button" role="tab" data-tab="settings">Налаштування</button>
+  </div>
+  <div class="tabs__panel" id="tab-data" role="tabpanel">
+    <div class="legend">
+      {% for flag, label in flag_labels.items() %}
+      <span class="legend__item"><span class="legend__swatch cell--{{ flag }}"></span>{{ label|sentence }}</span>
+      {% endfor %}
+    </div>
+    <div class="table-wrap table-wrap--tall">
+      <table class="table table--data table--compact">
+        <thead>
+          <tr>{% for column in preview.rows.columns %}<th>{{ column }}</th>{% endfor %}</tr>
+        </thead>
+        <tbody>
+          {% for row in preview.rows.itertuples(index=False, name=None) %}
+          {% set flags = preview.flags.iloc[loop.index0] %}
+          <tr>
+            <td class="num"><a href="{{ url_for('runs.entity', run_id=run.id, entity=row[0]) }}">{{ row[0] }}</a></td>
+            <td>{{ row[1] }}</td>
+            <td class="num">{{ row[2] }}</td>
+            {% for value in row[3:] %}
+            {% set flag = flags.iloc[loop.index] %}
+            <td{% if flag %} class="cell--{{ flag }}" title="{{ flag_labels[flag] }}"{% endif %}>{{ value }}</td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="hint">Показано {{ preview.rows|length|number }} з {{ preview.total|number }} сутностей. Номер відкриває картку сутності.</p>
+  </div>
+  <div class="tabs__panel" id="tab-duplicates" role="tabpanel">
+    {% if duplicate_total %}
+    <p class="hint">Сутностей, зібраних з кількох записів: {{ duplicate_total|number }}{% if duplicate_total > duplicates|length %}; показано перші {{ duplicates|length|number }}{% endif %}.</p>
+    <div class="table-wrap table-wrap--tall">
+      <table class="table table--data table--compact">
+        <thead>
+          <tr>{% for column in duplicates.columns %}<th>{{ column }}</th>{% endfor %}</tr>
+        </thead>
+        <tbody>
+          {% for row in duplicates.itertuples(index=False, name=None) %}
+          <tr>
+            <td class="num"><a href="{{ url_for('runs.entity', run_id=run.id, entity=row[0]) }}">{{ row[0] }}</a></td>
+            <td>{{ row[1] }}</td>
+            <td class="num">{{ row[2] }}</td>
+            {% for value in row[3:] %}<td>{{ value }}</td>{% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty">Дублікатів не знайдено: кожна сутність складається з одного запису.</div>
+    {% endif %}
+  </div>
+  <div class="tabs__panel" id="tab-sources" role="tabpanel">
+    <h3>Джерела</h3>
+    {{ ui.frame_table(tables['sources'], fit=True) }}
+    <h3>Оцінена точність джерел</h3>
+    {{ ui.frame_table(tables['accuracy'], fit=True) }}
+    <p class="hint">Частка значень джерела, що збігаються з іншими джерелами про ту саму сутність.</p>
+  </div>
+  <div class="tabs__panel" id="tab-mapping" role="tabpanel">
+    <h3>Зіставлення колонок</h3>
+    {{ ui.frame_table(tables['mapping']) }}
+    <h3>Уніфікація форматів</h3>
+    {{ ui.frame_table(tables['standardization']) }}
+    <p class="hint">«Не розпізнано»: значення не відповідає типу колонки й лишилося як було.</p>
+  </div>
+  <div class="tabs__panel" id="tab-linkage" role="tabpanel">
+    <h3>Зв'язування записів</h3>
+    {{ ui.frame_table(tables['linkage'], fit=True) }}
+    {% if report.possible_pairs %}
+    <p><a class="button" href="{{ url_for('reviews.show', run_id=run.id) }}">Перевірити можливі збіги вручну</a></p>
+    {% endif %}
+    <h3>Параметри моделі Фелегі–Зунтера</h3>
+    {{ ui.frame_table(tables['model'], tall=True, fit=True) }}
+    <p class="hint">m і u оцінено EM-алгоритмом без розмітки. Додатна вага log₂(m/u) свідчить на користь збігу.</p>
+  </div>
+  <div class="tabs__panel" id="tab-fusion" role="tabpanel">
+    <h3>Злиття за атрибутами</h3>
+    {{ ui.frame_table(tables['fusion']) }}
+    <h3>Конфлікти значень</h3>
+    {{ ui.frame_table(tables['conflicts'], limit=table_rows, tall=True) }}
+  </div>
+  <div class="tabs__panel" id="tab-profile" role="tabpanel">
+    <h3>Профіль консолідованих даних</h3>
+    {{ ui.frame_table(tables['result_profile']) }}
+    <p class="hint">Профіль консолідованої таблиці для порівняння з профілями джерел.</p>
+  </div>
+  <div class="tabs__panel" id="tab-settings" role="tabpanel">
+    <h3>Параметри запуску</h3>
+    {{ ui.frame_table(tables['settings'], fit=True) }}
+    <h3>Ваги критеріїв якості</h3>
+    <dl class="definition">
+      {% for score in scores %}
+      <dt>{{ criterion_labels[score.criterion] }}</dt>
+      <dd>{{ score.weight|number(3) }}</dd>
+      {% endfor %}
+      <dt>λ<sub>max</sub>, CI, CR</dt>
+      <dd>{{ ahp.lambda_max|number(3) }}, {{ ahp.consistency_index|number(3) }}, {{ ahp.consistency_ratio|number(3) }}</dd>
+    </dl>
+    <h3>Час виконання етапів</h3>
+    {{ ui.frame_table(tables['timings'], fit=True) }}
+    <h3>Запуск</h3>
+    <form method="post" action="{{ url_for('runs.delete', run_id=run.id) }}" data-confirm="Видалити запуск №{{ run.id }} і його звіт?">
+      {{ ui.csrf() }}
+      <button class="button button--danger" type="submit">Видалити цей запуск</button>
+    </form>
+  </div>
+</section>
+{% endblock %}

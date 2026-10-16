@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Проєкти{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Проєкти консолідації</h1>
+    <p class="lead">Проєкт збирає кілька джерел про ті самі об'єкти в одну таблицю без дублікатів.</p>
+  </div>
+</div>
+<div class="grid grid--sidebar">
+  <section class="card">
+    <div class="card__header">
+      <h2>Мої проєкти</h2>
+      <span class="muted small">усього: {{ projects|length }}</span>
+    </div>
+    {% if projects %}
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Проєкт</th>
+            <th class="num">Джерел</th>
+            <th class="num">Записів</th>
+            <th class="num">Запусків</th>
+            <th class="num">Індекс якості</th>
+            <th>Змінено</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in projects %}
+          <tr>
+            <td>
+              <a href="{{ url_for('projects.show', project_id=item.project.id) }}"><strong>{{ item.project.name }}</strong></a>
+              {% if item.project.description %}<div class="muted small">{{ item.project.description|truncate(160) }}</div>{% endif %}
+            </td>
+            <td class="num">{{ item.source_count|number }}</td>
+            <td class="num">{{ item.record_count|number }}</td>
+            <td class="num">{{ item.run_count|number }}</td>
+            <td class="num">{{ item.last_index|percent(2) or '—' }}</td>
+            <td class="nowrap">{{ item.project.updated_at|timestamp }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty">Проєктів ще немає. Створіть перший у формі праворуч.</div>
+    {% endif %}
+  </section>
+  <aside>
+    <section class="card">
+      <h2>Новий проєкт</h2>
+      <form class="form" method="post" action="{{ url_for('projects.create') }}">
+        {{ ui.csrf() }}
+        <label class="field">
+          <span>Назва</span>
+          <input name="name" maxlength="{{ max_name }}" required placeholder="Наприклад, реєстр закладів освіти">
+        </label>
+        <label class="field">
+          <span>Опис <em>необов'язково</em></span>
+          <textarea name="description" rows="3" maxlength="{{ max_description }}" placeholder="Звідки дані й навіщо їх об'єднувати"></textarea>
+        </label>
+        <div><button class="button button--primary" type="submit">Створити проєкт</button></div>
+      </form>
+    </section>
+    <section class="card">
+      <h2>Як це працює</h2>
+      <ol class="how">
+        <li>Завантажте файли з даними: CSV, JSON, XML, Excel, SQLite або архів з ними. Кодування, роздільник і структуру програма визначає сама.</li>
+        <li>Перевірте, як програма зіставила колонки різних джерел, і за потреби виправте назви, типи чи зіставлення.</li>
+        <li>Оберіть правила уніфікації, пошуку дублікатів і відновлення пропусків; задайте ваги критеріїв якості методом аналізу ієрархій.</li>
+        <li>Отримайте консолідовану таблицю, звіт «до/після» і походження кожного значення.</li>
+      </ol>
+    </section>
+  </aside>
+</div>
+{% endblock %}

@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}{{ source.name }}, {{ project.name }}{% endblock %}
+{% block breadcrumbs %}{{ ui.breadcrumbs(project, source.name) }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="break">{{ source.name }}</h1>
+    <p class="lead">
+      {% if uploaded %}Файл «{{ uploaded.original_name }}», {{ uploaded.size_bytes|file_size }}, {% endif %}формат {{ source.format }}
+      {% for label, value in details %}, {{ label|lower }}: {{ value }}{% endfor %}
+    </p>
+    {% if uploaded %}<p class="muted small">SHA-256 файлу: <code>{{ uploaded.sha256 }}</code></p>{% endif %}
+  </div>
+  <div class="page-header__actions">
+    <form class="inline-form" method="post" action="{{ url_for('sources.toggle', project_id=project.id, source_id=source.id) }}">
+      {{ ui.csrf() }}
+      <button class="button" type="submit">{{ 'Вимкнути з обробки' if source.included else 'Увімкнути в обробку' }}</button>
+    </form>
+    <a class="button" href="{{ url_for('projects.show', project_id=project.id) }}">До проєкту</a>
+  </div>
+</div>
+{{ ui.steps(project, 'sources') }}
+<div class="stats">
+  <div class="stat">
+    <div class="stat__label">Записів</div>
+    <div class="stat__value">{{ source.record_count|number }}</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">Колонок</div>
+    <div class="stat__value">{{ source.column_count|number }}</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">Повнота</div>
+    <div class="stat__value">{{ source.completeness|percent }}</div>
+    <div class="stat__note">частка непорожніх клітинок</div>
+  </div>
+  <div class="stat">
+    <div class="stat__label">Стан</div>
+    <div class="stat__value">{{ 'в обробці' if source.included else 'вимкнено' }}</div>
+    <div class="stat__note">пріоритет {{ source.priority }}</div>
+  </div>
+</div>
+<section class="card">
+  <div class="card__header">
+    <h2>Структура таблиці «{{ table.name }}»</h2>
+    <span class="muted small">колонок у таблиці: {{ table.columns|length }}</span>
+  </div>
+  <form class="layout-form" method="post" action="{{ url_for('sources.configure', project_id=project.id, source_id=source.id) }}">
+    {{ ui.csrf() }}
+    <label class="field">
+      <span>Ідентифікатор запису</span>
+      <select name="key_column">
+        <option value="">номер рядка в таблиці</option>
+        {% for column in table.columns %}<option value="{{ column }}"{{ ' selected' if column == table.key_column }}>{{ column }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="field">
+      <span>Розділити на джерела за колонкою</span>
+      <select name="split_column">
+        <option value="">не розділяти</option>
+        {% for column in table.columns %}<option value="{{ column }}"{{ ' selected' if column == table.split_column }}>{{ column }}</option>{% endfor %}
+      </select>
+    </label>
+    <div><button class="button" type="submit">Застосувати</button></div>
+  </form>
+  <p class="hint">Ідентифікатор позначає запис і не порівнюється. Розділення потрібне, якщо в таблиці записи кількох джерел.</p>
+</section>
+<section class="card">
+  <div class="card__header">
+    <h2>Профіль колонок</h2>
+    <span class="muted small">тип визначено за значеннями</span>
+  </div>
+  {% if profile %}
+  <div class="table-wrap">
+    <table class="table table--compact">
+      <thead>
+        <tr>{% for column in profile[0].keys() %}<th>{{ column }}</th>{% endfor %}</tr>
+      </thead>
+      <tbody>
+        {% for row in profile %}
+        <tr>
+          {% for column, value in row.items() %}
+          <td class="{{ value|align(column) }}">{{ value|cell(column) }}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="hint">Межі IQR: Q1 − 1,5·IQR і Q3 + 1,5·IQR. Приховані пропуски: «N/A», «-», «невідомо» тощо.</p>
+  {% else %}
+  <div class="empty">Профіль недоступний.</div>
+  {% endif %}
+</section>
+<section class="card">
+  <div class="card__header">
+    <h2>Перші записи</h2>
+    <span class="muted small">показано {{ rows|length|number }} з {{ source.record_count|number }}, значення як у файлі</span>
+  </div>
+  <div class="table-wrap table-wrap--tall">
+    <table class="table table--data table--compact">
+      <thead>
+        <tr>
+          <th class="num">{{ key_name }}</th>
+          {% for column in columns %}<th>{{ column }}</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for key, row in rows %}
+        <tr>
+          <td class="num muted">{{ key }}</td>
+          {% for value in row %}<td>{{ value }}</td>{% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

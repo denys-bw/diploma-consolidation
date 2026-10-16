@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Сутність {{ entity.entity }}, звіт №{{ run.id }}{% endblock %}
+{% block breadcrumbs %}{{ ui.breadcrumbs(project, 'Сутність ' ~ entity.entity, [('Звіт запуску №' ~ run.id, url_for('runs.show', run_id=run.id))]) }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Сутність {{ entity.entity }}</h1>
+    {% set count = entity.records|length %}
+    <p class="lead">Зібрано з {{ count|number }} {{ 'запису' if count % 10 == 1 and count % 100 != 11 else 'записів' }}. Джерела: {{ entity.sources }}.</p>
+  </div>
+  <div class="page-header__actions">
+    {% if entity.entity > 0 %}
+    <a class="button" href="{{ url_for('runs.entity', run_id=run.id, entity=entity.entity - 1) }}">Попередня сутність</a>
+    {% endif %}
+    {% if entity.entity + 1 < entity_count %}
+    <a class="button" href="{{ url_for('runs.entity', run_id=run.id, entity=entity.entity + 1) }}">Наступна сутність</a>
+    {% endif %}
+    <a class="button" href="{{ url_for('runs.show', run_id=run.id) }}">До звіту</a>
+  </div>
+</div>
+{{ ui.steps(project, 'report', run.id) }}
+<section class="card">
+  <h2>Консолідований запис</h2>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Атрибут</th>
+          <th>Значення</th>
+          <th>Звідки взято</th>
+          <th>Примітка</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for attribute in entity.attributes %}
+        {% set flag = entity.flags[loop.index0] if entity.flags else '' %}
+        <tr>
+          <td><strong>{{ attribute }}</strong></td>
+          <td{% if flag %} class="cell--{{ flag }}"{% endif %}>{{ entity.values[loop.index0] }}</td>
+          <td>{{ entity.provenance[loop.index0] if entity.provenance else '' }}</td>
+          <td class="muted small">{{ flag_labels[flag]|sentence if flag else '' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+<section class="card">
+  <div class="card__header">
+    <h2>Вихідні записи</h2>
+    <span class="muted small">значення як у джерелах</span>
+  </div>
+  <div class="table-wrap">
+    <table class="table table--data table--compact">
+      <thead>
+        <tr>
+          <th>Джерело</th>
+          <th class="num">Запис</th>
+          {% for attribute in entity.attributes %}<th>{{ attribute }}</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for record in entity.records %}
+        <tr>
+          <td>{{ record.source }}</td>
+          <td class="num">{{ record.key }}</td>
+          {% for value in record.values %}<td>{{ value }}</td>{% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="hint">Запис: значення ідентифікатора або номер рядка в джерелі.</p>
+</section>
+{% endblock %}

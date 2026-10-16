@@ -1,0 +1,59 @@
+@startuml
+!include style.iuml
+left to right direction
+abstract class Blocker {
+  +{abstract} candidates(records, scope): ndarray
+  +resolve(records, scope): Blocker
+}
+class TokenBlocking {
+  +neighbours: int
+  +adaptive_candidates(records, scope, judge)
+}
+class KeyBlocking {
+  +keys: BlockingKey[]
+}
+class SortedNeighbourhood {
+  +keys: BlockingKey[]
+  +window: int
+}
+class NumericNeighbourhood {
+  +attributes: str[]
+  +window: int
+}
+class FullComparison {
+  +max_pairs: int
+}
+abstract class PairScorer {
+  +score(task: ScoringTask): PairScores
+  +{abstract} unsupervised(task: ScoringTask): PairScores
+}
+class FellegiSunterScorer {
+  +term_frequencies: bool
+}
+class CoTraining {
+  +prior_scale: float
+}
+class ReviewCorrection {
+  +apply(task, scores): PairScores
+}
+abstract class Clusterer {
+  +{abstract} cluster(records, scored, threshold): Clustering
+}
+class AverageLinkage
+class OneToOneAssignment {
+  +assign(records, pairs, order)
+}
+class ConnectedComponents
+Blocker <|-- TokenBlocking
+Blocker <|-- KeyBlocking
+Blocker <|-- SortedNeighbourhood
+Blocker <|-- NumericNeighbourhood
+Blocker <|-- FullComparison
+PairScorer <|-- FellegiSunterScorer
+PairScorer <|-- CoTraining
+CoTraining ..> FellegiSunterScorer
+PairScorer ..> ReviewCorrection
+Clusterer <|-- AverageLinkage
+Clusterer <|-- OneToOneAssignment
+Clusterer <|-- ConnectedComponents
+@enduml

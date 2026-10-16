@@ -1,0 +1,9 @@
+набір,система,виявлення помилок,розмічених кортежів,precision,recall,F1,джерело
+flights,Baran,еталонні позиції помилок,20,1.0,1.0,1.0,"Mahdavi M., Abedjan Z. Baran: Effective Error Correction via a Unified Context Representation and Transfer Learning. PVLDB 13(11), 2020, табл. 3"
+flights,HoloClean,еталонні позиції помилок,,0.89,0.67,0.76,"Mahdavi M., Abedjan Z. Baran: Effective Error Correction via a Unified Context Representation and Transfer Learning. PVLDB 13(11), 2020, табл. 3"
+beers,Baran,еталонні позиції помилок,20,0.91,0.89,0.9,"Mahdavi M., Abedjan Z. Baran: Effective Error Correction via a Unified Context Representation and Transfer Learning. PVLDB 13(11), 2020, табл. 3"
+beers,HoloClean,еталонні позиції помилок,,0.01,0.01,0.01,"Mahdavi M., Abedjan Z. Baran: Effective Error Correction via a Unified Context Representation and Transfer Learning. PVLDB 13(11), 2020, табл. 3"
+flights,Raha + Baran,Raha,20,0.88,0.53,0.66,"Mahdavi M., Abedjan Z. Baran: Effective Error Correction via a Unified Context Representation and Transfer Learning. PVLDB 13(11), 2020, табл. 7"
+flights,Raha + Baran (In),Raha,20,0.84,0.56,0.67,"Mahdavi M., Abedjan Z. Baran: Effective Error Correction via a Unified Context Representation and Transfer Learning. PVLDB 13(11), 2020, табл. 7"
+beers,Raha + Baran,Raha,20,0.93,0.87,0.9,"Mahdavi M., Abedjan Z. Baran: Effective Error Correction via a Unified Context Representation and Transfer Learning. PVLDB 13(11), 2020, табл. 7"
+beers,Raha + Baran (In),Raha,20,0.93,0.87,0.9,"Mahdavi M., Abedjan Z. Baran: Effective Error Correction via a Unified Context Representation and Transfer Learning. PVLDB 13(11), 2020, табл. 7"

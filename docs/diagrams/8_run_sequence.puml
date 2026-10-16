@@ -1,0 +1,26 @@
+@startuml
+!include style.iuml
+actor Користувач as U
+participant "views.runs" as V
+participant RunService as S
+participant RunQueue as Q
+participant ConsolidationJob as J
+participant Pipeline as P
+participant RunProgress as O
+database SQLite as DB
+U -> V : POST /projects/{id}/settings
+V -> S : start(project_id, options)
+S -> DB : створити запуск
+S -> Q : submit(job)
+V --> U : сторінка прогресу
+Q -> J : виконати
+J -> P : run(sources, mapping, profiles, review)
+loop для кожного етапу
+  P -> O : stage_started(stage)
+  O -> DB : set_stage(run_id, stage)
+end
+P --> J : PipelineResult
+J -> DB : звіт, показники якості, файли
+U -> V : GET /runs/{id}
+V --> U : звіт
+@enduml

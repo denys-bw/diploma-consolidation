@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Зіставлення колонок, {{ project.name }}{% endblock %}
+{% block breadcrumbs %}{{ ui.breadcrumbs(project, 'Зіставлення колонок') }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Зіставлення колонок</h1>
+    <p class="lead">Рядок відповідає атрибуту результату, клітинки праворуч показують колонки джерел. За потреби перейменуйте атрибути, змініть тип або об'єднайте їх.</p>
+  </div>
+</div>
+{{ ui.steps(project, 'mapping') }}
+{% if not sources %}
+<div class="empty">Немає увімкнених джерел. Спочатку завантажте файли на сторінці проєкту.</div>
+{% else %}
+<section class="card">
+  <div class="card__header">
+    <h2>Автоматичне зіставлення</h2>
+  </div>
+  <form class="layout-form" method="post" action="{{ url_for('mapping.update', project_id=project.id) }}" data-confirm="Перебудувати зіставлення автоматично? Ручні зміни буде скинуто.">
+    {{ ui.csrf() }}
+    <input type="hidden" name="action" value="rebuild">
+    <label class="field">
+      <span>Рівень значущості</span>
+      <input type="number" name="schema_alpha" min="0.001" max="0.2" step="0.001" value="{{ '%.3f'|format(alpha) }}">
+    </label>
+    <div><button class="button" type="submit">Перебудувати автоматично</button></div>
+  </form>
+  <p class="hint">Колонки різних джерел зіставляються, якщо на ймовірних дублікатах їхні значення схожіші, ніж на випадкових парах записів (критерій Вілкоксона з поправкою Холма). Якщо спільних записів немає, зіставляються колонки з однаковими назвами. Більший рівень значущості об'єднує більше колонок.</p>
+</section>
+<form method="post" action="{{ url_for('mapping.update', project_id=project.id) }}">
+  {{ ui.csrf() }}
+  <button class="visually-hidden" type="submit" name="action" value="save" tabindex="-1" aria-hidden="true">Зберегти зміни</button>
+  <input type="hidden" name="rows" value="{{ attributes|length }}">
+  <section class="card">
+    <div class="card__header">
+      <h2>Атрибути</h2>
+      <span class="muted small">у результаті {{ attributes|selectattr('included')|list|length }} з {{ attributes|length }}</span>
+    </div>
+    {% if attributes %}
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Обрати</th>
+            <th>Атрибут</th>
+            <th>Тип</th>
+            <th>Впевненість</th>
+            <th>Роль</th>
+            {% for source in sources %}<th>{{ source.name }}</th>{% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for attribute in attributes %}
+          {% set row = loop.index0 %}
+          <tr{% if not attribute.included %} class="is-off"{% endif %}>
+            <td><input type="checkbox" name="selected_{{ row }}" aria-label="Обрати атрибут «{{ attribute.name }}» для об'єднання"></td>
+            <td>
+              <input type="hidden" name="current_{{ row }}" value="{{ attribute.name }}">
+              <input type="text" name="name_{{ row }}" value="{{ attribute.name }}" required maxlength="120" aria-label="Назва атрибута">
+            </td>
+            <td>
+              <select name="type_{{ row }}" aria-label="Тип атрибута «{{ attribute.name }}»">
+                {% for column_type, label in type_labels.items() %}
+                <option value="{{ column_type.value }}"{{ ' selected' if column_type == attribute.type }}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </td>
+            <td>{{ ui.meter(attribute.confidence) }}</td>
+            <td>
+              <select name="role_{{ row }}" data-role-select aria-label="Роль атрибута «{{ attribute.name }}»">
+                {% for role, label in role_labels.items() %}
+                <option value="{{ role.value }}"{{ ' selected' if role == attribute.role }}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </td>
+            {% for source in sources %}
+            {% set column = attribute.column_in(source.id) %}
+            <td>
+              {% if column is not none %}
+              <span class="mapping-column">
+                <span class="mapping-column__name">{{ column }}</span>
+                {% if attribute.columns|length > 1 %}
+                <button class="icon-button" type="submit" name="action" value="detach:{{ row }}:{{ source.id }}" title="Від'єднати в окремий атрибут" aria-label="Від'єднати колонку «{{ column }}» джерела «{{ source.name }}»">×</button>
+                {% endif %}
+              </span>
+              {% else %}
+              <span class="muted">—</span>
+              {% endif %}
+            </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="hint">Впевненість показує, наскільки схожі назви й значення колонок. Хрестик від'єднує колонку в окремий атрибут. Еталон не обробляється: за ним звіт перевіряє знайдені дублікати.</p>
+    {% else %}
+    <div class="empty">Атрибутів немає. Перебудуйте зіставлення автоматично.</div>
+    {% endif %}
+  </section>
+  <div class="action-bar">
+    <span class="action-bar__note">Щоб об'єднати атрибути, позначте два чи більше в колонці «Обрати».</span>
+    <button class="button" type="submit" name="action" value="merge">Об'єднати позначені</button>
+    <button class="button button--primary" type="submit" name="action" value="save">Зберегти зміни</button>
+  </div>
+</form>
+{% endif %}
+{% endblock %}

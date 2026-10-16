@@ -1,0 +1,15 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+.idea/
+.vscode/
+.pytest_cache/
+.ruff_cache/
+instance/
+data/raw/
+data/prepared/
+results/
+*.tar.gz

@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+{% import "macros.html" as ui %}
+{% block title %}Налаштування, {{ project.name }}{% endblock %}
+{% block breadcrumbs %}{{ ui.breadcrumbs(project, 'Налаштування обробки') }}{% endblock %}
+{% block content %}
+{% set chosen_policy = submitted.get('policy', options.policy.value) %}
+{% set chosen_duplicates = submitted.get('duplicates', options.duplicates.value) %}
+{% set chosen_blocking = submitted.get('blocking', options.blocking.value) %}
+{% set chosen_model = submitted.get('model', options.model.value) %}
+{% set chosen_imputation = submitted.get('imputation', options.imputation.value) %}
+<div class="page-header">
+  <div>
+    <h1>Налаштування обробки</h1>
+    <p class="lead">Зміни не впливають на звіти попередніх запусків.</p>
+  </div>
+</div>
+{{ ui.steps(project, 'settings') }}
+{% if problems %}
+<div class="callout callout--warning">
+  <strong>Перед запуском треба виправити:</strong>
+  <ul>
+    {% for problem in problems %}<li>{{ problem }}</li>{% endfor %}
+  </ul>
+</div>
+{% endif %}
+<form method="post" action="{{ url_for('runs.save_settings', project_id=project.id) }}">
+  {{ ui.csrf() }}
+  <div class="grid grid--two grid--start">
+    <section class="card">
+      <h2>1. Уніфікація форматів</h2>
+      <div class="form">
+        {{ ui.choices('policy', policy_choices, chosen_policy, 'Як записувати значення') }}
+        <label class="field">
+          <span>Регіон телефонів</span>
+          <input name="phone_region" list="phone-regions" maxlength="2" autocomplete="off" value="{{ submitted.get('phone_region', options.phone_region) }}" placeholder="визначати за даними">
+          <datalist id="phone-regions">
+            {% for code, name in regions.items() %}<option value="{{ code }}">{{ name }}</option>{% endfor %}
+          </datalist>
+        </label>
+        <p class="hint">Код ISO 3166 (UA, US) для номерів без коду країни. Якщо порожньо, програма визначає регіон окремо для кожного джерела за номерами з міжнародним кодом.</p>
+        <details class="more"{{ ' open' if submitted.get('phone_format') or options.phone_format or options.transliterate }}>
+          <summary>Шаблон телефону й транслітерація</summary>
+          <div class="form">
+            <label class="field">
+              <span>Шаблон телефону <em>необов'язково</em></span>
+              <input name="phone_format" maxlength="40" autocomplete="off" value="{{ submitted.get('phone_format', options.phone_format) }}" placeholder="наприклад, 999-999-9999">
+            </label>
+            <p class="hint">«9» позначає цифру номера.</p>
+            <label class="check">
+              <input type="checkbox" name="transliterate"{{ ' checked' if (submitted.get('transliterate') if submitted else options.transliterate) }}>
+              <span>Транслітерувати кириличні тексти латиницею за Постановою КМУ № 55</span>
+            </label>
+          </div>
+        </details>
+      </div>
+    </section>
+    <section class="card">
+      <h2>2. Пошук дублікатів</h2>
+      <div class="form">
+        {{ ui.choices('duplicates', duplicate_choices, chosen_duplicates, 'Які пари записів порівнювати') }}
+        {{ ui.choices('blocking', blocking_choices, chosen_blocking, 'Відбір пар-кандидатів') }}
+        <label class="field" data-show-when="blocking=sorted">
+          <span>Вікно сортованого сусідства <em>необов'язково</em></span>
+          <input type="number" name="window" min="2" max="1000" step="1" value="{{ submitted.get('window', options.window or '') }}" placeholder="за обсягом даних">
+        </label>
+        <details class="more"{{ ' open' if submitted }}>
+          <summary>Модель і пороги рішення</summary>
+          {{ ui.choices('model', model_choices, chosen_model, 'Модель') }}
+          <div class="fields-row fields-row--narrow">
+          <label class="field">
+            <span>Поріг імовірності збігу</span>
+            <input type="number" name="match_probability" min="0.01" max="0.99" step="0.01" value="{{ submitted.get('match_probability', '%.2f'|format(options.match_probability)) }}">
+          </label>
+          <label class="field">
+            <span>Допустимо хибних збігів, %</span>
+            <input type="number" name="false_match_rate" min="0" max="50" step="0.1" value="{{ submitted.get('false_match_rate', '%g'|format(options.false_match_rate * 100)) }}">
+          </label>
+          <label class="field">
+            <span>Допустимо пропущених, %</span>
+            <input type="number" name="missed_match_rate" min="0" max="50" step="0.1" value="{{ submitted.get('missed_match_rate', '%g'|format(options.missed_match_rate * 100)) }}">
+          </label>
+        </div>
+          <p class="hint">Модель навчається на кожному наборі сама, без розмітки. Межі зони ручної перевірки програма розраховує сама за методом Фелегі–Зунтера: на перевірку потрапляють пари, без яких очікувана частка помилок перевищила б допустиму.</p>
+        </details>
+      </div>
+    </section>
+  </div>
+  <section class="card">
+    <h2>3. Злиття дублікатів</h2>
+    <div class="grid grid--sidebar grid--start">
+      <div>
+        {% if attributes %}
+        <input type="hidden" name="attribute_rows" value="{{ attributes|length }}">
+        <div class="table-wrap">
+          <table class="table table--compact">
+            <thead>
+              <tr>
+                <th>Атрибут</th>
+                <th>Тип</th>
+                <th>Правило вибору значення</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for state in attributes %}
+              {% set row = loop.index0 %}
+              {% set current = submitted.get('resolution_' ~ row, state.resolution or '') %}
+              <tr>
+                <td>{{ state.name }}<input type="hidden" name="attribute_{{ row }}" value="{{ state.name }}"></td>
+                <td>{{ type_labels[state.type] }}</td>
+                <td>
+                  <select name="resolution_{{ row }}" aria-label="Правило для атрибута «{{ state.name }}»">
+                    <option value="">за типом: {{ resolver_labels[default_resolvers[state.name]] }}</option>
+                    {% for resolver in resolvers %}
+                    <option value="{{ resolver }}"{{ ' selected' if current == resolver }}>{{ resolver_labels[resolver] }}</option>
+                    {% endfor %}
+                  </select>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p class="hint">Зважене голосування більше довіряє джерелам, які частіше погоджуються з іншими.</p>
+        {% else %}
+        <div class="empty">Немає атрибутів: перевірте зіставлення колонок.</div>
+        {% endif %}
+      </div>
+      <div>
+        {% if sources %}
+        <h3>Пріоритет джерел</h3>
+        <div class="table-wrap">
+          <table class="table table--compact">
+            <thead>
+              <tr>
+                <th>Джерело</th>
+                <th class="num">Записів</th>
+                <th>Пріоритет</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for source in sources %}
+              <tr>
+                <td class="break">{{ source.name }}</td>
+                <td class="num">{{ source.record_count|number }}</td>
+                <td><input type="number" name="priority_{{ source.id }}" step="1" value="{{ submitted.get('priority_' ~ source.id, source.priority) }}" aria-label="Пріоритет джерела «{{ source.name }}»"></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p class="hint">1 означає найвищий пріоритет.</p>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+  <section class="card">
+    <h2>4. Відновлення пропусків</h2>
+    <div class="form">
+      {{ ui.choices('imputation', imputation_choices, chosen_imputation, 'Метод', row=True) }}
+      <div class="fields-row">
+        <label class="field" data-show-when="imputation=knn">
+          <span>Кількість сусідів k <em>необов'язково</em></span>
+          <input type="number" name="neighbours" min="1" max="1000" step="1" value="{{ submitted.get('neighbours', options.neighbours or '') }}" placeholder="перехресною перевіркою">
+        </label>
+        <p class="hint">Відновлюються лише кількісні атрибути й лише там, де джерела сутності мали цей атрибут.</p>
+      </div>
+    </div>
+  </section>
+  <section class="card" data-ahp data-url="{{ url_for('runs.ahp_preview') }}">
+    <div class="card__header">
+      <h2>5. Ваги критеріїв якості</h2>
+      <span class="muted small">метод аналізу ієрархій Т. Сааті</span>
+    </div>
+    <div class="ahp">
+      <div>
+        <p class="hint">Оберіть, який критерій важливіший і наскільки (шкала 1–9).</p>
+        {% for field, left, right, value in pairs %}
+        {% set pair = loop.index0 %}
+        {% set selected = submitted.get(field, value) %}
+        <label class="field ahp__pair">
+          <span class="ahp__pair-label">{{ left }} чи {{ right|lower }}: що важливіше?</span>
+          <select name="{{ field }}" data-ahp-pair>
+            {% for option, labels in saaty %}
+            <option value="{{ option }}"{{ ' selected' if selected == option }}>{{ labels[pair] }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        {% endfor %}
+        <div class="ahp__presets">
+          <button class="button button--small" type="button" data-preset="{{ presets.default|tojson|forceescape }}">Експертні судження за замовчуванням</button>
+          <button class="button button--small" type="button" data-preset="{{ presets.equal|tojson|forceescape }}">Рівні ваги</button>
+        </div>
+      </div>
+      <div>
+        <div class="weights">
+          {% for criterion, label in criteria %}
+          {% set weight = ahp.weight(criterion) %}
+          <div class="weights__row">
+            <span>{{ label }}</span>
+            <span class="weights__track"><span class="weights__fill" data-weight-fill="{{ criterion }}" style="width: {{ '%.1f'|format(weight * 100) }}%"></span></span>
+            <span class="weights__value" data-weight-value="{{ criterion }}">{{ weight|number(3) }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        <p class="consistency">
+          λ<sub>max</sub> = <span data-ahp-lambda>{{ ahp.lambda_max|number(3) }}</span>,
+          CI = <span data-ahp-ci>{{ ahp.consistency_index|number(3) }}</span>,
+          CR = <span data-ahp-cr>{{ ahp.consistency_ratio|number(3) }}</span>
+          <span class="badge {{ 'badge--success' if ahp.consistent else 'badge--danger' }}" data-ahp-verdict>{{ 'узгоджено' if ahp.consistent else 'неузгоджено' }}</span>
+        </p>
+        <p class="hint">Судження узгоджені, якщо CR < 0,1. Індекс якості Q = Σ wᵢ·qᵢ.</p>
+      </div>
+    </div>
+  </section>
+  <div class="action-bar">
+    <span class="action-bar__note">Рівень значущості для зіставлення колонок задається на сторінці «Зіставлення колонок».</span>
+    <button class="button" type="submit" name="action" value="save">Зберегти</button>
+    <button class="button button--primary" type="submit" name="action" value="run">Запустити обробку</button>
+  </div>
+</form>
+{% endblock %}
