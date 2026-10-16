@@ -37,7 +37,8 @@ DATASET_LABELS = {
     "chicago_sources": "Chicago",
     "settlements": "Geographic Settlements",
     "musicbrainz": "MusicBrainz 20K",
-    "nc_voters_sample": "NC Voters (вибірка)",
+    "nc_voters_sample": "NC Voters",
+    "nc_voters_20000": "NC Voters",
     "flights": "Flights",
     "beers": "Beers",
 }
