@@ -2,11 +2,37 @@
 !include style.iuml
 left to right direction
 package views {
-  class "projects" as vp
-  class "sources" as vs
-  class "mapping" as vm
-  class "runs" as vr
-  class "reviews" as vv
+  class "projects" as vp <<module>> {
+    +index()
+    +create()
+    +show(project_id)
+    +delete(project_id)
+  }
+  class "sources" as vs <<module>> {
+    +upload(project_id)
+    +delete_file(project_id, file_id)
+    +toggle(project_id, source_id)
+    +show(project_id, source_id)
+    +configure(project_id, source_id)
+    +configure_all(project_id)
+  }
+  class "mapping" as vm <<module>> {
+    +edit(project_id)
+    +update(project_id)
+  }
+  class "runs" as vr <<module>> {
+    +settings(project_id)
+    +save_settings(project_id)
+    +show(run_id)
+    +status(run_id)
+    +entity(run_id, entity)
+    +download(run_id, kind)
+    +delete(run_id)
+  }
+  class "reviews" as vv <<module>> {
+    +show(run_id)
+    +save(run_id)
+  }
 }
 package services {
   class Services
